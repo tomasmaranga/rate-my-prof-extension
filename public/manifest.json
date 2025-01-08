@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "Rate My Professor Extension",
+  "version": "1.0",
+  "description": "Enhance your university SIS with Rate My Professor data.",
+  "permissions": ["activeTab", "storage"],
+  "host_permissions": ["*://www.ratemyprofessors.com/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://sis.it.tufts.edu/psp/paprd/EMPLOYEE/EMPL/h/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "index.html",
+    "default_icon": {
+      "16": "vite.svg",
+      "48": "vite.svg",
+      "128": "vite.svg"
+    }
+  }
+}
