@@ -37,9 +37,21 @@ function runExtensionScript() {
         // Highlight each matched element for visibility
         professorDiv.style.outline = "2px solid red";
 
-        professorDiv.addEventListener("mouseenter", () => {
-          console.log("Professor hovered:", professorDiv.textContent?.trim());
-          professorDiv.style.outline = "2px solid blue";
+        professorDiv.addEventListener("mouseenter", async () => {
+          const professorName = professorDiv.textContent?.trim();
+          console.log("Fetching data for:", professorName);
+
+          if (professorName) {
+            const basicInfo = await fetchProfessorBasicInfo(
+              professorName,
+              "U2Nob29sLTEwNDA="
+            );
+            console.log("Fetched Basic Info:", basicInfo);
+
+            if (basicInfo) {
+              showPopup(professorDiv, basicInfo);
+            }
+          }
         });
 
         professorDiv.addEventListener("mouseleave", () => {
@@ -75,14 +87,27 @@ function createPopup() {
 }
 
 // Show popup near the hovered professor element
-function showPopup(target: HTMLElement, name: string) {
+function showPopup(
+  target: HTMLElement,
+  data: {
+    firstName: string;
+    lastName: string;
+    avgDifficulty: number;
+    avgRatingRounded: number;
+    department: string;
+    numRatings: number;
+    wouldTakeAgainPercentRounded: number;
+  }
+) {
   const popup = document.getElementById("rmp-popup") || createPopup();
   popup.innerHTML = `
       <div>
-        <h3 class="font-bold text-lg">${name}</h3>
-        <p>Rating: <span class="font-medium">N/A</span></p>
-        <p>Difficulty: <span class="font-medium">N/A</span></p>
-        <p>More info coming soon...</p>
+        <h3 class="font-bold text-lg">${data.firstName} ${data.lastName}</h3>
+        <p>Department: <span class="font-medium">${data.department}</span></p>
+        <p>Rating: <span class="font-medium">${data.avgRatingRounded}</span></p>
+        <p>Difficulty: <span class="font-medium">${data.avgDifficulty}</span></p>
+        <p>Would Take Again: <span class="font-medium">${data.wouldTakeAgainPercentRounded}%</span></p>
+        <p>Number of Ratings: <span class="font-medium">${data.numRatings}</span></p>
       </div>
     `;
   const rect = target.getBoundingClientRect();
@@ -100,8 +125,17 @@ function hidePopup() {
 // Attach hover event listeners to professor elements
 function attachPopupListeners(professorElements: NodeListOf<HTMLElement>) {
   professorElements.forEach((el) => {
-    el.addEventListener("mouseenter", () => {
-      showPopup(el, el.textContent?.trim() || "Unknown Professor");
+    el.addEventListener("mouseenter", async () => {
+      const professorName = el.textContent?.trim();
+      if (professorName) {
+        const basicInfo = await fetchProfessorBasicInfo(
+          professorName,
+          "U2Nob29sLTEwNDA="
+        );
+        if (basicInfo) {
+          showPopup(el, basicInfo); // Pass the structured data
+        }
+      }
     });
     el.addEventListener("mouseleave", hidePopup);
   });
@@ -115,3 +149,43 @@ waitForElement("div.tfp-ins", () => {
   ) as NodeListOf<HTMLElement>;
   attachPopupListeners(professorElements);
 });
+
+async function fetchProfessorBasicInfo(
+  name: string,
+  schoolId: string
+): Promise<{
+  firstName: string;
+  lastName: string;
+  avgDifficulty: number;
+  avgRatingRounded: number;
+  department: string;
+  numRatings: number;
+  wouldTakeAgainPercentRounded: number;
+} | null> {
+  console.log("Fetching data for:", name);
+
+  return new Promise((resolve) => {
+    chrome.runtime.sendMessage(
+      {
+        type: "FETCH_PROFESSOR_INFO",
+        name,
+        schoolId,
+      },
+      (response: any) => {
+        if (chrome.runtime.lastError) {
+          console.error(
+            "Error communicating with the background script:",
+            chrome.runtime.lastError.message
+          );
+          resolve(null);
+        } else if (!response) {
+          console.error("No response from background script.");
+          resolve(null);
+        } else {
+          console.log("Response received from background script:", response);
+          resolve(response);
+        }
+      }
+    );
+  });
+}
