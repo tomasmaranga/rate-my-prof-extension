@@ -12,6 +12,7 @@
     {
       "matches": ["https://sis.it.tufts.edu/psp/paprd/EMPLOYEE/EMPL/h/*"],
       "js": ["content.js"],
+      "css": ["index.css"],
       "run_at": "document_idle"
     }
   ],

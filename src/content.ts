@@ -13,7 +13,7 @@ function createPopup() {
     "absolute bg-white text-black p-4 shadow-lg rounded-lg border border-gray-300 z-50";
   popup.style.display = "none";
   popup.style.position = "absolute";
-  popup.style.width = "200px";
+  popup.style.width = "800px";
   popup.style.pointerEvents = "none";
   document.body.appendChild(popup);
   return popup;
