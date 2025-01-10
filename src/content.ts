@@ -1,78 +1,11 @@
+import { renderPopup } from "./popupRenderer";
+
 console.log("Rate My Professor Extension content script loaded");
 
-// Helper function to wait for a specific DOM element
-function waitForElement(selector: string, callback: () => void) {
-  const observer = new MutationObserver((_, obs) => {
-    if (document.querySelector(selector)) {
-      obs.disconnect();
-      callback();
-    }
-  });
+// Set of already processed professor elements
+const observedElements = new Set<HTMLElement>();
 
-  observer.observe(document.body, {
-    childList: true,
-    subtree: true,
-  });
-}
-
-function runExtensionScript() {
-  console.log("Checking if on search results page...");
-
-  if (window.location.hash.includes("search_results")) {
-    console.log("Content script is active on search results page");
-
-    waitForElement("div.tfp-ins", () => {
-      console.log(
-        "Search results detected, running professor name detection..."
-      );
-
-      const professorElements = document.querySelectorAll("div.tfp-ins");
-      console.log(`Found ${professorElements.length} professor elements`);
-
-      professorElements.forEach((el, index) => {
-        const professorDiv = el as HTMLElement;
-
-        console.log(`Element ${index}:`, professorDiv.textContent?.trim());
-
-        // Highlight each matched element for visibility
-        professorDiv.style.outline = "2px solid red";
-
-        professorDiv.addEventListener("mouseenter", async () => {
-          const professorName = professorDiv.textContent?.trim();
-          console.log("Fetching data for:", professorName);
-
-          if (professorName) {
-            const basicInfo = await fetchProfessorBasicInfo(
-              professorName,
-              "U2Nob29sLTEwNDA="
-            );
-            console.log("Fetched Basic Info:", basicInfo);
-
-            if (basicInfo) {
-              showPopup(professorDiv, basicInfo);
-            }
-          }
-        });
-
-        professorDiv.addEventListener("mouseleave", () => {
-          professorDiv.style.outline = "none";
-        });
-      });
-    });
-  } else {
-    console.log("Not on search results page. Waiting for navigation...");
-  }
-}
-
-runExtensionScript();
-
-// Detect hash changes for SPA navigation
-window.addEventListener("hashchange", () => {
-  console.log("URL hash changed, re-running script...");
-  runExtensionScript();
-});
-
-// Create a popup element
+// Helper function to create a popup
 function createPopup() {
   const popup = document.createElement("div");
   popup.id = "rmp-popup";
@@ -86,7 +19,7 @@ function createPopup() {
   return popup;
 }
 
-// Show popup near the hovered professor element
+// Function to show a popup with professor info
 function showPopup(
   target: HTMLElement,
   data: {
@@ -97,59 +30,34 @@ function showPopup(
     department: string;
     numRatings: number;
     wouldTakeAgainPercentRounded: number;
+    ratingsDistribution: {
+      r1: number;
+      r2: number;
+      r3: number;
+      r4: number;
+      r5: number;
+      total: number;
+    };
+    teacherRatingTags: { tagName: string; tagCount: number }[];
   }
 ) {
   const popup = document.getElementById("rmp-popup") || createPopup();
-  popup.innerHTML = `
-      <div>
-        <h3 class="font-bold text-lg">${data.firstName} ${data.lastName}</h3>
-        <p>Department: <span class="font-medium">${data.department}</span></p>
-        <p>Rating: <span class="font-medium">${data.avgRatingRounded}</span></p>
-        <p>Difficulty: <span class="font-medium">${data.avgDifficulty}</span></p>
-        <p>Would Take Again: <span class="font-medium">${data.wouldTakeAgainPercentRounded}%</span></p>
-        <p>Number of Ratings: <span class="font-medium">${data.numRatings}</span></p>
-      </div>
-    `;
+
+  popup.innerHTML = renderPopup(data);
+
   const rect = target.getBoundingClientRect();
   popup.style.top = `${rect.bottom + window.scrollY}px`;
   popup.style.left = `${rect.left + window.scrollX}px`;
   popup.style.display = "block";
 }
 
-// Hide the popup
+// Function to hide the popup
 function hidePopup() {
   const popup = document.getElementById("rmp-popup");
   if (popup) popup.style.display = "none";
 }
 
-// Attach hover event listeners to professor elements
-function attachPopupListeners(professorElements: NodeListOf<HTMLElement>) {
-  professorElements.forEach((el) => {
-    el.addEventListener("mouseenter", async () => {
-      const professorName = el.textContent?.trim();
-      if (professorName) {
-        const basicInfo = await fetchProfessorBasicInfo(
-          professorName,
-          "U2Nob29sLTEwNDA="
-        );
-        if (basicInfo) {
-          showPopup(el, basicInfo); // Pass the structured data
-        }
-      }
-    });
-    el.addEventListener("mouseleave", hidePopup);
-  });
-}
-
-// Main script logic
-waitForElement("div.tfp-ins", () => {
-  console.log("Adding hover popup listeners...");
-  const professorElements = document.querySelectorAll(
-    "div.tfp-ins"
-  ) as NodeListOf<HTMLElement>;
-  attachPopupListeners(professorElements);
-});
-
+// Function to fetch professor information from the background script
 async function fetchProfessorBasicInfo(
   name: string,
   schoolId: string
@@ -161,6 +69,15 @@ async function fetchProfessorBasicInfo(
   department: string;
   numRatings: number;
   wouldTakeAgainPercentRounded: number;
+  ratingsDistribution: {
+    r1: number;
+    r2: number;
+    r3: number;
+    r4: number;
+    r5: number;
+    total: number;
+  };
+  teacherRatingTags: { tagName: string; tagCount: number }[];
 } | null> {
   console.log("Fetching data for:", name);
 
@@ -183,9 +100,81 @@ async function fetchProfessorBasicInfo(
           resolve(null);
         } else {
           console.log("Response received from background script:", response);
-          resolve(response);
+
+          resolve({
+            firstName: response.firstName,
+            lastName: response.lastName,
+            avgDifficulty: response.avgDifficulty || 0,
+            avgRatingRounded: response.avgRatingRounded || 0,
+            department: response.department || "N/A",
+            numRatings: response.numRatings || 0,
+            wouldTakeAgainPercentRounded:
+              response.wouldTakeAgainPercentRounded || 0,
+            ratingsDistribution: response.ratingsDistribution || {
+              r1: 0,
+              r2: 0,
+              r3: 0,
+              r4: 0,
+              r5: 0,
+              total: 0,
+            },
+            teacherRatingTags: response.teacherRatingTags || [],
+          });
         }
       }
     );
   });
 }
+
+function processProfessorElement(professorDiv: HTMLElement) {
+  if (observedElements.has(professorDiv)) return;
+  observedElements.add(professorDiv);
+
+  professorDiv.style.outline = "2px solid red";
+
+  professorDiv.addEventListener("mouseenter", async () => {
+    const professorName = professorDiv.textContent?.trim();
+    if (professorName) {
+      const basicInfo = await fetchProfessorBasicInfo(
+        professorName,
+        "U2Nob29sLTEwNDA="
+      );
+      if (basicInfo) showPopup(professorDiv, basicInfo);
+    }
+  });
+
+  professorDiv.addEventListener("mouseleave", hidePopup);
+}
+
+function monitorForNewProfessorElements() {
+  const observer = new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+      if (mutation.addedNodes.length > 0) {
+        const professorElements = document.querySelectorAll("div.tfp-ins");
+        professorElements.forEach((el) =>
+          processProfessorElement(el as HTMLElement)
+        );
+      }
+    });
+  });
+
+  observer.observe(document.body, { childList: true, subtree: true });
+  console.log("Monitoring for new professor elements...");
+}
+
+function runExtensionScript() {
+  console.log("Checking if on search results page...");
+  if (window.location.hash.includes("search_results")) {
+    console.log("Content script is active on search results page");
+    monitorForNewProfessorElements();
+  } else {
+    console.log("Not on search results page. Waiting for navigation...");
+  }
+}
+
+runExtensionScript();
+
+window.addEventListener("hashchange", () => {
+  console.log("URL hash changed, re-running script...");
+  runExtensionScript();
+});

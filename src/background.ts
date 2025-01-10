@@ -15,24 +15,49 @@ chrome.runtime.onMessage.addListener(
       const AUTH_TOKEN = "dGVzdDp0ZXN0";
 
       const query = `
-            query TeacherSearchResultsPageQuery($query: TeacherSearchQuery!) {
-              search: newSearch {
-                teachers(query: $query, first: 1) {
-                  edges {
-                    node {
-                      firstName
-                      lastName
-                      department
-                      avgRatingRounded
-                      avgDifficulty
-                      wouldTakeAgainPercentRounded
-                      numRatings
+        query TeacherDetails($query: TeacherSearchQuery!) {
+            search: newSearch {
+            teachers(query: $query, first: 1) {
+                edges {
+                node {
+                    firstName
+                    lastName
+                    department
+                    avgRatingRounded
+                    avgDifficulty
+                    wouldTakeAgainPercentRounded
+                    numRatings
+                    ratingsDistribution {
+                    r1
+                    r2
+                    r3
+                    r4
+                    r5
+                    total
                     }
-                  }
+                    teacherRatingTags {
+                    tagName
+                    tagCount
+                    }
+                    ratings {
+                    edges {
+                        node {
+                        qualityRating
+                        difficultyRatingRounded
+                        helpfulRatingRounded
+                        clarityRatingRounded
+                        comment
+                        class
+                        date
+                        }
+                    }
+                    }
                 }
-              }
+                }
             }
-          `;
+            }
+        }
+    `;
 
       const variables = {
         query: {
@@ -55,11 +80,36 @@ chrome.runtime.onMessage.addListener(
           });
 
           const data = await response.json();
-          console.log("Data fetched successfully in background script:", data);
+          console.log("Fetched data:", data);
 
-          const result = data?.data?.search?.teachers?.edges?.[0]?.node || null;
-          console.log("Sending response back to content script:", result);
-          sendResponse(result);
+          if (data?.data?.search?.teachers?.edges?.[0]?.node) {
+            const teacherData = data.data.search.teachers.edges[0].node;
+
+            const responseToContentScript = {
+              firstName: teacherData.firstName,
+              lastName: teacherData.lastName,
+              department: teacherData.department,
+              avgRatingRounded: teacherData.avgRatingRounded,
+              avgDifficulty: teacherData.avgDifficulty,
+              wouldTakeAgainPercentRounded:
+                teacherData.wouldTakeAgainPercentRounded,
+              numRatings: teacherData.numRatings,
+              ratingsDistribution: teacherData.ratingsDistribution,
+              teacherRatingTags: teacherData.teacherRatingTags,
+              ratings: teacherData.ratings?.edges?.map(
+                (edge: any) => edge.node
+              ),
+            };
+
+            console.log(
+              "Sending response back to content script:",
+              responseToContentScript
+            );
+            sendResponse(responseToContentScript); // Send data to content script
+          } else {
+            console.error("No teacher data found.");
+            sendResponse(null);
+          }
         } catch (error) {
           console.error("Error during fetch:", error);
           sendResponse(null);
