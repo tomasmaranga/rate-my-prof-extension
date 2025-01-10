@@ -13,44 +13,19 @@ function createPopup() {
   popup.style.position = "absolute";
   popup.style.pointerEvents = "auto";
 
-  popup.addEventListener("click", (event) => {
-    const target = event.target as HTMLElement;
-
-    if (target.matches(".rmp-course-item")) {
-      const courseName = target.getAttribute("data-course");
-      console.log("User clicked course:", courseName);
-      event.stopPropagation();
-    }
-  });
-
   document.body.appendChild(popup);
   return popup;
 }
 
 function showPopup(
   target: HTMLElement,
-  data: {
-    firstName: string;
-    lastName: string;
-    avgDifficulty: number;
-    avgRatingRounded: number;
-    department: string;
-    numRatings: number;
-    wouldTakeAgainPercentRounded: number;
-    ratingsDistribution: {
-      r1: number;
-      r2: number;
-      r3: number;
-      r4: number;
-      r5: number;
-      total: number;
-    };
-    teacherRatingTags: { tagName: string; tagCount: number }[];
-  }
+  data: any,
+  selectedCourse: string = "all"
 ) {
   const popup =
     (document.getElementById("rmp-popup") as HTMLDivElement) || createPopup();
-  popup.innerHTML = renderPopup(data);
+
+  popup.innerHTML = renderPopup(data, selectedCourse);
 
   const rect = target.getBoundingClientRect();
   popup.style.top = `${rect.bottom + window.scrollY}px`;
@@ -58,6 +33,7 @@ function showPopup(
   popup.style.display = "block";
 
   attachPopupHoverLogic(target, popup);
+  attachDropdownChange(popup, data, target);
 }
 
 function hidePopup() {
@@ -68,19 +44,84 @@ function hidePopup() {
 }
 
 function attachPopupHoverLogic(professorDiv: HTMLElement, popup: HTMLElement) {
-  professorDiv.addEventListener("mouseleave", (event) => {
-    if (popup.contains(event.relatedTarget as Node)) {
-      return;
-    }
+  professorDiv.addEventListener("mouseleave", (evt) => {
+    if (popup.contains(evt.relatedTarget as Node)) return;
     hidePopup();
   });
+  popup.addEventListener("mouseleave", (evt) => {
+    if (professorDiv.contains(evt.relatedTarget as Node)) return;
+    hidePopup();
+  });
+}
 
-  popup.addEventListener("mouseleave", (event) => {
-    if (professorDiv.contains(event.relatedTarget as Node)) {
-      return;
+function attachDropdownChange(
+  popup: HTMLElement,
+  originalData: any,
+  professorDiv: HTMLElement
+) {
+  const dropdown = popup.querySelector("#course-dropdown") as HTMLSelectElement;
+  if (!dropdown) return;
+
+  dropdown.addEventListener("change", () => {
+    const selectedCourse = dropdown.value;
+
+    let filteredRatings;
+    if (selectedCourse === "all") {
+      filteredRatings = originalData.allRatings;
+    } else {
+      filteredRatings = originalData.allRatings.filter(
+        (r: any) => r.class === selectedCourse
+      );
     }
-    hidePopup();
+
+    const updatedDistribution = computeRatingsDistribution(filteredRatings);
+    const updatedStats = computeNewAverages(filteredRatings);
+
+    const newData = {
+      ...originalData,
+      ratings: filteredRatings,
+      ratingsDistribution: updatedDistribution,
+      avgRatingRounded: updatedStats.avgRatingRounded,
+      avgDifficulty: updatedStats.avgDifficulty,
+      numRatings: filteredRatings.length,
+    };
+
+    showPopup(professorDiv, newData, selectedCourse);
   });
+}
+
+function computeRatingsDistribution(ratings: any[]) {
+  const dist = { r1: 0, r2: 0, r3: 0, r4: 0, r5: 0, total: 0 };
+
+  for (const r of ratings) {
+    const q = Math.round(r.qualityRating || 0);
+    if (q >= 1 && q <= 5) {
+      dist[`r${q}` as "r1"]++;
+    }
+    dist.total++;
+  }
+  return dist;
+}
+
+function computeNewAverages(ratings: any[]) {
+  if (!ratings.length) {
+    return {
+      avgRatingRounded: 0,
+      avgDifficulty: 0,
+    };
+  }
+  let sumQuality = 0;
+  let sumDiff = 0;
+  for (const r of ratings) {
+    sumQuality += r.qualityRating || 0;
+    sumDiff += r.difficultyRatingRounded || 0;
+  }
+  const avgQ = sumQuality / ratings.length;
+  const avgD = sumDiff / ratings.length;
+  return {
+    avgRatingRounded: Math.round(avgQ * 10) / 10,
+    avgDifficulty: Math.round(avgD * 10) / 10,
+  };
 }
 
 async function fetchProfessorBasicInfo(name: string, schoolId: string) {
@@ -104,27 +145,13 @@ async function fetchProfessorBasicInfo(name: string, schoolId: string) {
           console.error("No response from background script.");
           resolve(null);
         } else {
-          console.log("Response received from background script:", response);
-
-          resolve({
-            firstName: response.firstName,
-            lastName: response.lastName,
-            avgDifficulty: response.avgDifficulty || 0,
-            avgRatingRounded: response.avgRatingRounded || 0,
-            department: response.department || "N/A",
-            numRatings: response.numRatings || 0,
-            wouldTakeAgainPercentRounded:
-              response.wouldTakeAgainPercentRounded || 0,
-            ratingsDistribution: response.ratingsDistribution || {
-              r1: 0,
-              r2: 0,
-              r3: 0,
-              r4: 0,
-              r5: 0,
-              total: 0,
-            },
-            teacherRatingTags: response.teacherRatingTags || [],
-          });
+          const allRatings = response.ratings || [];
+          const data = {
+            ...response,
+            ratings: allRatings,
+            allRatings,
+          };
+          resolve(data);
         }
       }
     );
@@ -140,12 +167,12 @@ function processProfessorElement(professorDiv: HTMLElement) {
   professorDiv.addEventListener("mouseenter", async () => {
     const professorName = professorDiv.textContent?.trim();
     if (professorName) {
-      const basicInfo = await fetchProfessorBasicInfo(
+      const info = await fetchProfessorBasicInfo(
         professorName,
         "U2Nob29sLTEwNDA="
       );
-      if (basicInfo) {
-        showPopup(professorDiv, basicInfo);
+      if (info) {
+        showPopup(professorDiv, info, "all");
       }
     }
   });
@@ -153,14 +180,12 @@ function processProfessorElement(professorDiv: HTMLElement) {
 
 function monitorForNewProfessorElements() {
   const observer = new MutationObserver((mutations) => {
-    mutations.forEach((mutation) => {
+    for (const mutation of mutations) {
       if (mutation.addedNodes.length > 0) {
-        const professorElements = document.querySelectorAll("div.tfp-ins");
-        professorElements.forEach((el) =>
-          processProfessorElement(el as HTMLElement)
-        );
+        const profs = document.querySelectorAll("div.tfp-ins");
+        profs.forEach((el) => processProfessorElement(el as HTMLElement));
       }
-    });
+    }
   });
 
   observer.observe(document.body, { childList: true, subtree: true });

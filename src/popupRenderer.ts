@@ -1,21 +1,43 @@
-export function renderPopup(data: {
-  firstName: string;
-  lastName: string;
-  avgDifficulty: number;
-  avgRatingRounded: number;
-  department: string;
-  numRatings: number;
-  wouldTakeAgainPercentRounded: number;
-  ratingsDistribution: {
-    r1: number;
-    r2: number;
-    r3: number;
-    r4: number;
-    r5: number;
-    total: number;
-  };
-  teacherRatingTags: { tagName: string; tagCount: number }[];
-}) {
+export function renderPopup(
+  data: {
+    firstName: string;
+    lastName: string;
+    avgDifficulty: number;
+    avgRatingRounded: number;
+    department: string;
+    numRatings: number;
+    wouldTakeAgainPercentRounded: number;
+    ratingsDistribution: {
+      r1: number;
+      r2: number;
+      r3: number;
+      r4: number;
+      r5: number;
+      total: number;
+    };
+    teacherRatingTags: { tagName: string; tagCount: number }[];
+    ratings: {
+      qualityRating: number;
+      difficultyRatingRounded: number;
+      helpfulRatingRounded: number;
+      clarityRatingRounded: number;
+      comment: string;
+      class: string;
+      date: string;
+    }[];
+    allRatings?: {
+      qualityRating: number;
+      difficultyRatingRounded: number;
+      helpfulRatingRounded: number;
+      clarityRatingRounded: number;
+      comment: string;
+      class: string;
+      date: string;
+    }[];
+  },
+  selectedCourse: string = "all" // Add default value for the second argument
+) {
+  // Everything remains the same
   const topTags = data.teacherRatingTags
     .sort((a, b) => b.tagCount - a.tagCount)
     .slice(0, 5);
@@ -34,6 +56,7 @@ export function renderPopup(data: {
           )
           .join("")
       : `<span class="text-gray-500 text-sm">No tags available</span>`;
+
   const maxCount = Math.max(
     data.ratingsDistribution.r1,
     data.ratingsDistribution.r2,
@@ -41,33 +64,36 @@ export function renderPopup(data: {
     data.ratingsDistribution.r4,
     data.ratingsDistribution.r5
   );
+
   function renderBarRow(star: number) {
     const count = (data.ratingsDistribution as any)[`r${star}`] || 0;
     const percent = ((count / maxCount) * 100).toFixed(1);
 
     return `
-        <div class="flex items-center mb-2">
-          <div class="text-sm w-5 text-right mr-2">${star}</div>
-          <div class="relative flex-1 h-10 bg-gray-200 rounded-sm overflow-hidden mr-3">
-            <div
-              class="absolute left-0 top-0 h-10 bg-[#0055FD] transition-all duration-300"
-              style="width: ${percent}%;"
-            ></div>
-          </div>
-          <div class="text-sm w-5 text-right">${count}</div>
+      <div class="flex items-center mb-2">
+        <div class="text-sm w-5 text-right mr-2">${star}</div>
+        <div class="relative flex-1 h-10 bg-gray-200 rounded-sm overflow-hidden mr-3">
+          <div
+            class="absolute left-0 top-0 h-10 bg-[#0055FD] transition-all duration-300"
+            style="width: ${percent}%;"
+          ></div>
         </div>
-      `;
+        <div class="text-sm w-5 text-right">${count}</div>
+      </div>
+    `;
   }
 
   const distributionBars = [5, 4, 3, 2, 1].map(renderBarRow).join("");
 
+  const courses = Array.from(
+    new Set(
+      data.allRatings?.map((rating) => rating.class).filter(Boolean) || []
+    )
+  );
+
   return `
     <div class="w-[500px] h-[360px] bg-white">
-
-      <div 
-        class="origin-top-left transform scale-75" 
-        style="width: 667px;"
-      >
+      <div class="origin-top-left transform scale-75" style="width: 667px;">
         <div class="p-4 text-gray-900">
           <div class="flex flex-wrap md:flex-nowrap md:space-x-8">
             <div class="w-full md:w-1/2 mb-6 md:mb-0">
@@ -82,8 +108,7 @@ export function renderPopup(data: {
                 <span class="underline cursor-pointer">
                   ${data.numRatings} Ratings
                 </span>
-              </p>
-
+              </p>              
               <h1 class="text-3xl text-black font-bold mt-4">
                 ${data.firstName} ${data.lastName}
               </h1>
@@ -92,27 +117,21 @@ export function renderPopup(data: {
                 <span class="font-medium">${data.department}</span><br />
                 at Tufts University
               </p>
-
               <div class="flex items-center space-x-6 mt-6">
                 <div class="text-center">
                   <div class="text-3xl font-extrabold">
                     ${data.wouldTakeAgainPercentRounded.toFixed(0)}%
                   </div>
-                  <p class="text-sm text-gray-600">
-                    Would take again
-                  </p>
+                  <p class="text-sm text-gray-600">Would take again</p>
                 </div>
                 <div class="w-px h-8 bg-gray-300"></div>
                 <div class="text-center">
                   <div class="text-3xl font-extrabold">
                     ${data.avgDifficulty.toFixed(1)}
                   </div>
-                  <p class="text-sm text-gray-600">
-                    Level of Difficulty
-                  </p>
+                  <p class="text-sm text-gray-600">Level of Difficulty</p>
                 </div>
               </div>
-
               <h2 class="text-lg font-bold mt-6">
                 Professor ${data.lastName}'s Top Tags
               </h2>
@@ -120,36 +139,36 @@ export function renderPopup(data: {
                 ${tagsHtml}
               </div>
             </div>
-
             <div class="w-full md:w-1/2">
               ${distributionBars}
-
               <div class="mt-6 flex items-center">
-                <span class="text-sm text-gray-600 mr-2">
-                  Showing Results for:
-                </span>
-                <button 
+                <span class="text-sm text-gray-600 mr-2">Showing Results for:</span>
+                <select
+                  id="course-dropdown"
                   class="bg-gray-300 inline-flex items-center space-x-1 border border-gray-300 text-sm px-3 py-1 rounded-md hover:bg-gray-100"
                 >
-                  <span>All Courses</span>
-                  <svg 
-                    class="w-4 h-4 text-white" 
-                    fill="none" 
-                    stroke="white" 
-                    stroke-width="2" 
-                    viewBox="0 0 24 24" 
-                    stroke-linecap="round" 
-                    stroke-linejoin="round"
-                  >
-                    <path d="M6 9l6 6 6-6" />
-                  </svg>
-                </button>
+                  <option value="all" ${
+                    selectedCourse === "all" ? "selected" : ""
+                  }>
+                    All Courses
+                  </option>
+                  ${courses
+                    .map(
+                      (course) => `
+                        <option value="${course}" ${
+                        course === selectedCourse ? "selected" : ""
+                      }>
+                          ${course}
+                        </option>
+                      `
+                    )
+                    .join("")}
+                </select>
               </div>
             </div>
           </div>
         </div>
       </div>
-
-    </div> 
+    </div>
   `;
 }

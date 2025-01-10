@@ -44,11 +44,8 @@ chrome.runtime.onMessage.addListener(
                                     node {
                                         qualityRating
                                         difficultyRatingRounded
-                                        helpfulRatingRounded
-                                        clarityRatingRounded
-                                        comment
+                                        iWouldTakeAgain
                                         class
-                                        date
                                     }
                                 }
                             }
