@@ -17,44 +17,44 @@ chrome.runtime.onMessage.addListener(
       const query = `
         query TeacherDetails($query: TeacherSearchQuery!) {
             search: newSearch {
-            teachers(query: $query, first: 1) {
-                edges {
-                node {
-                    firstName
-                    lastName
-                    department
-                    avgRatingRounded
-                    avgDifficulty
-                    wouldTakeAgainPercentRounded
-                    numRatings
-                    ratingsDistribution {
-                    r1
-                    r2
-                    r3
-                    r4
-                    r5
-                    total
-                    }
-                    teacherRatingTags {
-                    tagName
-                    tagCount
-                    }
-                    ratings {
+                teachers(query: $query, first: 1) {
                     edges {
                         node {
-                        qualityRating
-                        difficultyRatingRounded
-                        helpfulRatingRounded
-                        clarityRatingRounded
-                        comment
-                        class
-                        date
+                            firstName
+                            lastName
+                            department
+                            avgRatingRounded
+                            avgDifficulty
+                            wouldTakeAgainPercentRounded
+                            numRatings
+                            ratingsDistribution {
+                                r1
+                                r2
+                                r3
+                                r4
+                                r5
+                                total
+                            }
+                            teacherRatingTags {
+                                tagName
+                                tagCount
+                            }
+                            ratings {
+                                edges {
+                                    node {
+                                        qualityRating
+                                        difficultyRatingRounded
+                                        helpfulRatingRounded
+                                        clarityRatingRounded
+                                        comment
+                                        class
+                                        date
+                                    }
+                                }
+                            }
                         }
                     }
-                    }
                 }
-                }
-            }
             }
         }
     `;
@@ -105,7 +105,7 @@ chrome.runtime.onMessage.addListener(
               "Sending response back to content script:",
               responseToContentScript
             );
-            sendResponse(responseToContentScript); // Send data to content script
+            sendResponse(responseToContentScript);
           } else {
             console.error("No teacher data found.");
             sendResponse(null);

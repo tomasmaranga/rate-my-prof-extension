@@ -2,10 +2,8 @@ import { renderPopup } from "./popupRenderer";
 
 console.log("Rate My Professor Extension content script loaded");
 
-// Set of already processed professor elements
 const observedElements = new Set<HTMLElement>();
 
-// Helper function to create a popup
 function createPopup() {
   const popup = document.createElement("div");
   popup.id = "rmp-popup";
@@ -13,13 +11,22 @@ function createPopup() {
     "absolute bg-white text-black p-4 shadow-lg rounded-lg border border-gray-300 z-50";
   popup.style.display = "none";
   popup.style.position = "absolute";
-  popup.style.width = "800px";
-  popup.style.pointerEvents = "none";
+  popup.style.pointerEvents = "auto";
+
+  popup.addEventListener("click", (event) => {
+    const target = event.target as HTMLElement;
+
+    if (target.matches(".rmp-course-item")) {
+      const courseName = target.getAttribute("data-course");
+      console.log("User clicked course:", courseName);
+      event.stopPropagation();
+    }
+  });
+
   document.body.appendChild(popup);
   return popup;
 }
 
-// Function to show a popup with professor info
 function showPopup(
   target: HTMLElement,
   data: {
@@ -41,47 +48,45 @@ function showPopup(
     teacherRatingTags: { tagName: string; tagCount: number }[];
   }
 ) {
-  const popup = document.getElementById("rmp-popup") || createPopup();
-
+  const popup =
+    (document.getElementById("rmp-popup") as HTMLDivElement) || createPopup();
   popup.innerHTML = renderPopup(data);
 
   const rect = target.getBoundingClientRect();
   popup.style.top = `${rect.bottom + window.scrollY}px`;
   popup.style.left = `${rect.left + window.scrollX}px`;
   popup.style.display = "block";
+
+  attachPopupHoverLogic(target, popup);
 }
 
-// Function to hide the popup
 function hidePopup() {
   const popup = document.getElementById("rmp-popup");
-  if (popup) popup.style.display = "none";
+  if (popup) {
+    popup.style.display = "none";
+  }
 }
 
-// Function to fetch professor information from the background script
-async function fetchProfessorBasicInfo(
-  name: string,
-  schoolId: string
-): Promise<{
-  firstName: string;
-  lastName: string;
-  avgDifficulty: number;
-  avgRatingRounded: number;
-  department: string;
-  numRatings: number;
-  wouldTakeAgainPercentRounded: number;
-  ratingsDistribution: {
-    r1: number;
-    r2: number;
-    r3: number;
-    r4: number;
-    r5: number;
-    total: number;
-  };
-  teacherRatingTags: { tagName: string; tagCount: number }[];
-} | null> {
+function attachPopupHoverLogic(professorDiv: HTMLElement, popup: HTMLElement) {
+  professorDiv.addEventListener("mouseleave", (event) => {
+    if (popup.contains(event.relatedTarget as Node)) {
+      return;
+    }
+    hidePopup();
+  });
+
+  popup.addEventListener("mouseleave", (event) => {
+    if (professorDiv.contains(event.relatedTarget as Node)) {
+      return;
+    }
+    hidePopup();
+  });
+}
+
+async function fetchProfessorBasicInfo(name: string, schoolId: string) {
   console.log("Fetching data for:", name);
 
-  return new Promise((resolve) => {
+  return new Promise<any>((resolve) => {
     chrome.runtime.sendMessage(
       {
         type: "FETCH_PROFESSOR_INFO",
@@ -139,11 +144,11 @@ function processProfessorElement(professorDiv: HTMLElement) {
         professorName,
         "U2Nob29sLTEwNDA="
       );
-      if (basicInfo) showPopup(professorDiv, basicInfo);
+      if (basicInfo) {
+        showPopup(professorDiv, basicInfo);
+      }
     }
   });
-
-  professorDiv.addEventListener("mouseleave", hidePopup);
 }
 
 function monitorForNewProfessorElements() {
