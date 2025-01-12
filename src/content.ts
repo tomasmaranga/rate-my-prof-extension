@@ -28,6 +28,11 @@ function showPopup(
   popup.innerHTML = renderPopup(data, selectedCourse);
 
   const rect = target.getBoundingClientRect();
+
+  const scaleFactor = 0.7;
+
+  popup.style.transformOrigin = "top left";
+  popup.style.transform = `scale(${scaleFactor})`;
   popup.style.top = `${rect.bottom + window.scrollY}px`;
   popup.style.left = `${rect.left + window.scrollX}px`;
   popup.style.display = "block";

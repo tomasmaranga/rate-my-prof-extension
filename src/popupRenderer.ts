@@ -35,9 +35,8 @@ export function renderPopup(
       date: string;
     }[];
   },
-  selectedCourse: string = "all" // Add default value for the second argument
+  selectedCourse: string = "all"
 ) {
-  // Everything remains the same
   const topTags = data.teacherRatingTags
     .sort((a, b) => b.tagCount - a.tagCount)
     .slice(0, 5);
@@ -57,13 +56,14 @@ export function renderPopup(
           .join("")
       : `<span class="text-gray-500 text-sm">No tags available</span>`;
 
-  const maxCount = Math.max(
-    data.ratingsDistribution.r1,
-    data.ratingsDistribution.r2,
-    data.ratingsDistribution.r3,
-    data.ratingsDistribution.r4,
-    data.ratingsDistribution.r5
-  );
+  const maxCount =
+    Math.max(
+      data.ratingsDistribution.r1,
+      data.ratingsDistribution.r2,
+      data.ratingsDistribution.r3,
+      data.ratingsDistribution.r4,
+      data.ratingsDistribution.r5
+    ) || 1;
 
   function renderBarRow(star: number) {
     const count = (data.ratingsDistribution as any)[`r${star}`] || 0;
@@ -92,80 +92,74 @@ export function renderPopup(
   );
 
   return `
-    <div class="w-[500px] h-[360px] bg-white">
-      <div class="origin-top-left transform scale-75" style="width: 667px;">
-        <div class="p-4 text-gray-900">
-          <div class="flex flex-wrap md:flex-nowrap md:space-x-8">
-            <div class="w-full md:w-1/2 mb-6 md:mb-0">
-              <div class="flex items-baseline space-x-2">
-                <span class="text-5xl font-extrabold">
-                  ${data.avgRatingRounded.toFixed(1)}
-                </span>
-                <span class="text-xl text-gray-500">/ 5</span>
+    <div class="w-[667px] h-auto bg-white p-4 text-gray-900">
+      <div class="flex flex-wrap md:flex-nowrap md:space-x-8">
+        <div class="w-full md:w-1/2 mb-6 md:mb-0">
+          <div class="flex items-baseline space-x-2">
+            <span class="text-5xl font-extrabold">
+              ${data.avgRatingRounded.toFixed(1)}
+            </span>
+            <span class="text-xl text-gray-500">/ 5</span>
+          </div>
+          <p class="mt-1 text-sm text-gray-600">
+            Overall Quality Based on 
+            <span class="underline cursor-pointer">
+              ${data.numRatings} Ratings
+            </span>
+          </p>
+          <h1 class="text-3xl text-black font-bold mt-4">
+            ${data.firstName} ${data.lastName}
+          </h1>
+          <p class="text-gray-700 mt-1">
+            Department: 
+            <span class="font-medium">${data.department}</span><br />
+            at Tufts University
+          </p>
+          <div class="flex items-center space-x-6 mt-6">
+            <div class="text-center">
+              <div class="text-3xl font-extrabold">
+                ${data.wouldTakeAgainPercentRounded.toFixed(0)}%
               </div>
-              <p class="mt-1 text-sm text-gray-600">
-                Overall Quality Based on 
-                <span class="underline cursor-pointer">
-                  ${data.numRatings} Ratings
-                </span>
-              </p>              
-              <h1 class="text-3xl text-black font-bold mt-4">
-                ${data.firstName} ${data.lastName}
-              </h1>
-              <p class="text-gray-700 mt-1">
-                Department: 
-                <span class="font-medium">${data.department}</span><br />
-                at Tufts University
-              </p>
-              <div class="flex items-center space-x-6 mt-6">
-                <div class="text-center">
-                  <div class="text-3xl font-extrabold">
-                    ${data.wouldTakeAgainPercentRounded.toFixed(0)}%
-                  </div>
-                  <p class="text-sm text-gray-600">Would take again</p>
-                </div>
-                <div class="w-px h-8 bg-gray-300"></div>
-                <div class="text-center">
-                  <div class="text-3xl font-extrabold">
-                    ${data.avgDifficulty.toFixed(1)}
-                  </div>
-                  <p class="text-sm text-gray-600">Level of Difficulty</p>
-                </div>
-              </div>
-              <h2 class="text-lg font-bold mt-6">
-                Professor ${data.lastName}'s Top Tags
-              </h2>
-              <div class="mt-3 flex flex-wrap">
-                ${tagsHtml}
-              </div>
+              <p class="text-sm text-gray-600">Would take again</p>
             </div>
-            <div class="w-full md:w-1/2">
-              ${distributionBars}
-              <div class="mt-6 flex items-center">
-                <span class="text-sm text-gray-600 mr-2">Showing Results for:</span>
-                <select
-                  id="course-dropdown"
-                  class="bg-gray-300 inline-flex items-center space-x-1 border border-gray-300 text-sm px-3 py-1 rounded-md hover:bg-gray-100"
-                >
-                  <option value="all" ${
-                    selectedCourse === "all" ? "selected" : ""
+            <div class="w-px h-8 bg-gray-300"></div>
+            <div class="text-center">
+              <div class="text-3xl font-extrabold">
+                ${data.avgDifficulty.toFixed(1)}
+              </div>
+              <p class="text-sm text-gray-600">Level of Difficulty</p>
+            </div>
+          </div>
+          <h2 class="text-lg font-bold mt-6">
+            Professor ${data.lastName}'s Top Tags
+          </h2>
+          <div class="mt-3 flex flex-wrap">
+            ${tagsHtml}
+          </div>
+        </div>
+        <div class="w-full md:w-1/2">
+          ${distributionBars}
+          <div class="mt-6 flex items-center">
+            <span class="text-sm text-gray-600 mr-2">Showing Results for:</span>
+            <select
+              id="course-dropdown"
+              class="bg-gray-300 inline-flex items-center space-x-1 border border-gray-300 text-sm px-3 py-1 rounded-md hover:bg-gray-100"
+            >
+              <option value="all" ${selectedCourse === "all" ? "selected" : ""}>
+                All Courses
+              </option>
+              ${courses
+                .map(
+                  (course) => `
+                    <option value="${course}" ${
+                    course === selectedCourse ? "selected" : ""
                   }>
-                    All Courses
-                  </option>
-                  ${courses
-                    .map(
-                      (course) => `
-                        <option value="${course}" ${
-                        course === selectedCourse ? "selected" : ""
-                      }>
-                          ${course}
-                        </option>
-                      `
-                    )
-                    .join("")}
-                </select>
-              </div>
-            </div>
+                      ${course}
+                    </option>
+                  `
+                )
+                .join("")}
+            </select>
           </div>
         </div>
       </div>
