@@ -1,42 +1,35 @@
-export function renderPopup(
-  data: {
-    firstName: string;
-    lastName: string;
-    avgDifficulty: number;
-    avgRatingRounded: number;
-    department: string;
-    numRatings: number;
-    wouldTakeAgainPercentRounded: number;
-    ratingsDistribution: {
-      r1: number;
-      r2: number;
-      r3: number;
-      r4: number;
-      r5: number;
-      total: number;
-    };
-    teacherRatingTags: { tagName: string; tagCount: number }[];
-    ratings: {
-      qualityRating: number;
-      difficultyRatingRounded: number;
-      helpfulRatingRounded: number;
-      clarityRatingRounded: number;
-      comment: string;
-      class: string;
-      date: string;
-    }[];
-    allRatings?: {
-      qualityRating: number;
-      difficultyRatingRounded: number;
-      helpfulRatingRounded: number;
-      clarityRatingRounded: number;
-      comment: string;
-      class: string;
-      date: string;
-    }[];
-  },
-  selectedCourse: string = "all"
-) {
+export interface Teacher {
+  id: string;
+  firstName: string;
+  lastName: string;
+  department: string;
+  avgRatingRounded: number;
+  avgDifficulty: number;
+  wouldTakeAgainPercentRounded: number;
+  numRatings: number;
+  ratingsDistribution: {
+    r1: number;
+    r2: number;
+    r3: number;
+    r4: number;
+    r5: number;
+    total: number;
+  };
+  teacherRatingTags: { tagName: string; tagCount: number }[];
+  ratings: {
+    qualityRating: number;
+    difficultyRatingRounded: number;
+    iWouldTakeAgain: boolean;
+    class: string;
+  }[];
+}
+
+export interface PopupData extends Teacher {
+  allRatings?: Teacher["ratings"];
+  otherMatches?: Teacher[];
+}
+
+export function renderPopup(data: PopupData, selectedCourse: string = "all") {
   const topTags = data.teacherRatingTags
     .sort((a, b) => b.tagCount - a.tagCount)
     .slice(0, 5);
@@ -46,12 +39,12 @@ export function renderPopup(
       ? topTags
           .map(
             (tag) => `
-                <span 
-                  class="inline-block rounded-full bg-gray-200 text-gray-800 px-3 py-1 text-sm font-medium mb-2 mr-2"
-                >
-                  ${tag.tagName}
-                </span>
-              `
+              <span 
+                class="inline-block rounded-full bg-gray-200 text-gray-800 px-3 py-1 text-sm font-medium mb-2 mr-2"
+              >
+                ${tag.tagName}
+              </span>
+            `
           )
           .join("")
       : `<span class="text-gray-500 text-sm">No tags available</span>`;
@@ -86,10 +79,37 @@ export function renderPopup(
   const distributionBars = [5, 4, 3, 2, 1].map(renderBarRow).join("");
 
   const courses = Array.from(
-    new Set(
-      data.allRatings?.map((rating) => rating.class).filter(Boolean) || []
-    )
+    new Set(data.allRatings?.map((r) => r.class).filter(Boolean) || [])
   );
+
+  const otherMatchesHtml = `
+  <h2 class="text-md font-bold mt-6">Were you looking for:</h2>
+  <div class="mt-2 space-y-1">
+    ${
+      data.otherMatches
+        ?.map((oth) => {
+          const escapedData = JSON.stringify(oth)
+            .replace(/\\/g, "\\\\")
+            .replace(/"/g, "&quot;");
+          return `
+          <div class="flex justify-between items-center border-b py-1">
+            <span>
+              ${oth.firstName} ${oth.lastName} (${oth.department || "Unknown"})
+            </span>
+            <button
+              class="choose-other text-blue-600 underline"
+              data-oth="${escapedData}"
+            >
+              Select
+            </button>
+          </div>
+        `;
+        })
+        .join("") ||
+      `<span class="text-gray-500 text-sm">No other matches available</span>`
+    }
+  </div>
+`;
 
   return `
     <div class="w-[667px] h-auto bg-white p-4 text-gray-900">
@@ -140,7 +160,9 @@ export function renderPopup(
         <div class="w-full md:w-1/2">
           ${distributionBars}
           <div class="mt-6 flex items-center">
-            <span class="text-sm text-gray-600 mr-2">Showing Results for:</span>
+            <span class="text-sm text-gray-600 mr-2">
+              Showing Results for:
+            </span>
             <select
               id="course-dropdown"
               class="bg-gray-300 inline-flex items-center space-x-1 border border-gray-300 text-sm px-3 py-1 rounded-md hover:bg-gray-100"
@@ -151,9 +173,10 @@ export function renderPopup(
               ${courses
                 .map(
                   (course) => `
-                    <option value="${course}" ${
-                    course === selectedCourse ? "selected" : ""
-                  }>
+                    <option
+                      value="${course}"
+                      ${course === selectedCourse ? "selected" : ""}
+                    >
                       ${course}
                     </option>
                   `
@@ -163,6 +186,7 @@ export function renderPopup(
           </div>
         </div>
       </div>
+      ${otherMatchesHtml}
     </div>
   `;
 }

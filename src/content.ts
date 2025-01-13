@@ -1,4 +1,4 @@
-import { renderPopup } from "./popupRenderer";
+import { renderPopup, PopupData, Teacher } from "./popupRenderer";
 
 console.log("Rate My Professor Extension content script loaded");
 
@@ -17,9 +17,10 @@ function createPopup() {
   return popup;
 }
 
-function showPopup(
+async function showPopup(
   target: HTMLElement,
-  data: any,
+  data: PopupData,
+  hoveredName: string,
   selectedCourse: string = "all"
 ) {
   const popup =
@@ -38,7 +39,8 @@ function showPopup(
   popup.style.display = "block";
 
   attachPopupHoverLogic(target, popup);
-  attachDropdownChange(popup, data, target);
+  attachDropdownChange(popup, data, hoveredName, target);
+  attachOtherMatchesClick(popup, hoveredName, target, data);
 }
 
 function hidePopup() {
@@ -46,6 +48,65 @@ function hidePopup() {
   if (popup) {
     popup.style.display = "none";
   }
+}
+
+async function parseAndFetchTeachers(
+  fullName: string,
+  schoolId: string
+): Promise<Teacher[]> {
+  const parted = fullName
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  const count = parted.length;
+  if (count >= 6) {
+    console.log("6+ professors, skipping query");
+    return [];
+  }
+
+  let allTeachers: Teacher[] = [];
+
+  let maxResultsPer = 5;
+
+  if (count === 1) {
+    maxResultsPer = 5;
+  } else if (count === 2) {
+    maxResultsPer = 2;
+  } else if (count >= 3 && count <= 5) {
+    maxResultsPer = 1;
+  }
+
+  for (const sub of parted) {
+    const { firstName, lastName } = parseFirstLast(sub);
+    const processedName = `${firstName} ${lastName}`.trim();
+    if (!processedName) continue;
+
+    const partial = await callBackgroundRMP(
+      processedName,
+      schoolId,
+      maxResultsPer
+    );
+    if (partial && partial.length > 0) {
+      allTeachers = allTeachers.concat(partial);
+    }
+  }
+
+  return allTeachers;
+}
+
+function parseFirstLast(subName: string): {
+  firstName: string;
+  lastName: string;
+} {
+  const tokens = subName.split(" ").filter(Boolean);
+  if (tokens.length === 1) {
+    return { firstName: tokens[0], lastName: "" };
+  }
+  return {
+    firstName: tokens[0],
+    lastName: tokens[tokens.length - 1],
+  };
 }
 
 function attachPopupHoverLogic(professorDiv: HTMLElement, popup: HTMLElement) {
@@ -61,7 +122,8 @@ function attachPopupHoverLogic(professorDiv: HTMLElement, popup: HTMLElement) {
 
 function attachDropdownChange(
   popup: HTMLElement,
-  originalData: any,
+  originalData: PopupData,
+  hoveredName: string,
   professorDiv: HTMLElement
 ) {
   const dropdown = popup.querySelector("#course-dropdown") as HTMLSelectElement;
@@ -70,19 +132,17 @@ function attachDropdownChange(
   dropdown.addEventListener("change", () => {
     const selectedCourse = dropdown.value;
 
-    let filteredRatings;
-    if (selectedCourse === "all") {
-      filteredRatings = originalData.allRatings;
-    } else {
-      filteredRatings = originalData.allRatings.filter(
-        (r: any) => r.class === selectedCourse
+    let filteredRatings = originalData.allRatings || [];
+    if (selectedCourse !== "all") {
+      filteredRatings = filteredRatings.filter(
+        (r) => r.class === selectedCourse
       );
     }
 
     const updatedDistribution = computeRatingsDistribution(filteredRatings);
     const updatedStats = computeNewAverages(filteredRatings);
 
-    const newData = {
+    const newData: PopupData = {
       ...originalData,
       ratings: filteredRatings,
       ratingsDistribution: updatedDistribution,
@@ -91,7 +151,42 @@ function attachDropdownChange(
       numRatings: filteredRatings.length,
     };
 
-    showPopup(professorDiv, newData, selectedCourse);
+    showPopup(professorDiv, newData, hoveredName, selectedCourse);
+  });
+}
+
+function attachOtherMatchesClick(
+  popup: HTMLElement,
+  hoveredName: string,
+  professorDiv: HTMLElement,
+  currentData: PopupData
+) {
+  popup.querySelectorAll(".choose-other").forEach((btn) => {
+    btn.addEventListener("click", async (evt) => {
+      evt.stopPropagation();
+      const target = evt.currentTarget as HTMLElement;
+      const profJson = target.getAttribute("data-oth");
+      if (!profJson) {
+        console.error("No data-oth attribute found for button.");
+        return;
+      }
+      try {
+        const chosenProf: Teacher = JSON.parse(profJson);
+
+        await chrome.storage.local.set({
+          [`pref_${hoveredName}`]: chosenProf,
+        });
+
+        const newMain = buildPopupDataFromTeacher(chosenProf);
+
+        const leftover = (currentData.otherMatches || []).concat([currentData]);
+        newMain.otherMatches = leftover.filter((o) => o.id !== chosenProf.id);
+
+        showPopup(professorDiv, newMain, hoveredName, "all");
+      } catch (error) {
+        console.error("Failed to parse data-oth JSON:", error, profJson);
+      }
+    });
   });
 }
 
@@ -129,35 +224,40 @@ function computeNewAverages(ratings: any[]) {
   };
 }
 
-async function fetchProfessorBasicInfo(name: string, schoolId: string) {
-  console.log("Fetching data for:", name);
+function buildPopupDataFromTeacher(t: Teacher): PopupData {
+  return {
+    ...t,
+    allRatings: t.ratings,
+    otherMatches: [],
+  };
+}
 
-  return new Promise<any>((resolve) => {
+async function callBackgroundRMP(
+  name: string,
+  schoolId: string,
+  maxResults: number
+) {
+  return new Promise<Teacher[]>((resolve) => {
     chrome.runtime.sendMessage(
       {
         type: "FETCH_PROFESSOR_INFO",
         name,
         schoolId,
+        maxResults,
       },
       (response: any) => {
         if (chrome.runtime.lastError) {
           console.error(
-            "Error communicating with the background script:",
+            "Error with background script:",
             chrome.runtime.lastError.message
           );
-          resolve(null);
-        } else if (!response) {
-          console.error("No response from background script.");
-          resolve(null);
-        } else {
-          const allRatings = response.ratings || [];
-          const data = {
-            ...response,
-            ratings: allRatings,
-            allRatings,
-          };
-          resolve(data);
+          return resolve([]);
         }
+        if (!response || !Array.isArray(response.teachers)) {
+          console.error("No teachers array from background script");
+          return resolve([]);
+        }
+        resolve(response.teachers);
       }
     );
   });
@@ -170,16 +270,31 @@ function processProfessorElement(professorDiv: HTMLElement) {
   professorDiv.style.outline = "2px solid red";
 
   professorDiv.addEventListener("mouseenter", async () => {
-    const professorName = professorDiv.textContent?.trim();
-    if (professorName) {
-      const info = await fetchProfessorBasicInfo(
-        professorName,
-        "U2Nob29sLTEwNDA="
-      );
-      if (info) {
-        showPopup(professorDiv, info, "all");
-      }
+    const professorName = professorDiv.textContent?.trim() || "";
+    if (!professorName) return;
+
+    const teachers = await parseAndFetchTeachers(
+      professorName,
+      "U2Nob29sLTEwNDA="
+    );
+    if (!teachers.length) return;
+
+    const prefKey = `pref_${professorName}`;
+    const stored = await chrome.storage.local.get(prefKey);
+
+    let mainTeacher: Teacher;
+    if (stored[prefKey]) {
+      const found = teachers.find((t) => t.id === stored[prefKey].id);
+      mainTeacher = found || teachers[0];
+    } else {
+      mainTeacher = teachers[0];
     }
+    const others = teachers.filter((t) => t.id !== mainTeacher.id);
+
+    const mainData = buildPopupDataFromTeacher(mainTeacher);
+    mainData.otherMatches = others.map(buildPopupDataFromTeacher);
+
+    showPopup(professorDiv, mainData, professorName, "all");
   });
 }
 
