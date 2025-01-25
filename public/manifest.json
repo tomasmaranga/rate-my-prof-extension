@@ -1,9 +1,14 @@
 {
   "manifest_version": 3,
-  "name": "Rate My Professor Extension",
+  "name": "Tufts SIS Rate My Professors Extension",
   "version": "1.0",
-  "description": "Enhance your university SIS with Rate My Professor data.",
-  "permissions": ["activeTab", "storage"],
+  "icons": {
+    "16": "icon-16.png",
+    "48": "icon-48.png",
+    "128": "icon-128.png"
+  },
+  "description": "Easily access your professors' RMP stats on SIS",
+  "permissions": ["activeTab", "storage", "scripting"],
   "host_permissions": ["*://www.ratemyprofessors.com/*"],
   "background": {
     "service_worker": "background.js"
@@ -18,10 +23,10 @@
   ],
   "action": {
     "default_popup": "index.html",
-    "default_icon": {
-      "16": "vite.svg",
-      "48": "vite.svg",
-      "128": "vite.svg"
-    }
+    "default_icon": "icon-48.png"
+  },
+  "options_ui": {
+    "chrome_style": true,
+    "open_in_tab": false
   }
 }

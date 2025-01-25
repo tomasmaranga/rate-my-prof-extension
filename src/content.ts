@@ -1,7 +1,5 @@
 import { renderPopup, PopupData, Teacher } from "./popupRenderer";
 
-console.log("Rate My Professor Extension content script loaded");
-
 const observedElements = new Set<HTMLElement>();
 
 function createPopup() {
@@ -267,10 +265,15 @@ function processProfessorElement(professorDiv: HTMLElement) {
   if (observedElements.has(professorDiv)) return;
   observedElements.add(professorDiv);
 
-  professorDiv.style.outline = "2px solid red";
+  professorDiv.style.outline = "2px solid grey";
 
   professorDiv.addEventListener("mouseenter", async () => {
     const professorName = professorDiv.textContent?.trim() || "";
+
+    if (professorName === "STAFF") {
+      return;
+    }
+
     if (!professorName) return;
 
     const teachers = await parseAndFetchTeachers(
@@ -309,22 +312,22 @@ function monitorForNewProfessorElements() {
   });
 
   observer.observe(document.body, { childList: true, subtree: true });
-  console.log("Monitoring for new professor elements...");
 }
 
 function runExtensionScript() {
-  console.log("Checking if on search results page...");
-  if (window.location.hash.includes("search_results")) {
-    console.log("Content script is active on search results page");
-    monitorForNewProfessorElements();
-  } else {
-    console.log("Not on search results page. Waiting for navigation...");
-  }
+  chrome.storage.local.get("extensionEnabled", (data) => {
+    if (data.extensionEnabled === false) {
+      return;
+    }
+    if (window.location.hash.includes("search_results")) {
+      monitorForNewProfessorElements();
+    } else {
+    }
+  });
 }
 
 runExtensionScript();
 
 window.addEventListener("hashchange", () => {
-  console.log("URL hash changed, re-running script...");
   runExtensionScript();
 });

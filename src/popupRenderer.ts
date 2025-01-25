@@ -1,3 +1,5 @@
+import { Buffer } from "buffer";
+
 export interface Teacher {
   id: string;
   firstName: string;
@@ -57,6 +59,10 @@ export function renderPopup(data: PopupData, selectedCourse: string = "all") {
       data.ratingsDistribution.r4,
       data.ratingsDistribution.r5
     ) || 1;
+
+  const decodedId = Buffer.from(data.id, "base64").toString("utf-8");
+  const professorId = decodedId.split("-")[1];
+  const url = `https://www.ratemyprofessors.com/professor/${professorId}`;
 
   function renderBarRow(star: number) {
     const count = (data.ratingsDistribution as any)[`r${star}`] || 0;
@@ -127,9 +133,32 @@ export function renderPopup(data: PopupData, selectedCourse: string = "all") {
               ${data.numRatings} Ratings
             </span>
           </p>
-          <h1 class="text-3xl text-black font-bold mt-4">
-            ${data.firstName} ${data.lastName}
-          </h1>
+          <div class ="flex flex-row gap-2 items-center">
+            <h1 class="text-3xl text-black font-bold">
+              ${data.firstName} ${data.lastName}
+            </h1>
+            <a
+              href="${url}"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="text-blue-600 hover:text-blue-800 flex justify-center"
+            >
+              <svg
+                stroke="currentColor"
+                fill="currentColor"
+                stroke-width="0"
+                version="1.2"
+                baseProfile="tiny"
+                viewBox="0 0 24 24"
+                height="1em"
+                width="1em"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path d="M14 3v2h3.59l-5.27 5.27 1.41 1.41L19 6.41V10h2V3z"></path>
+                <path d="M19 13v8H5V5h8V3H5c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-8h-2z"></path>
+              </svg>
+            </a>
+          </div>
           <p class="text-gray-700 mt-1">
             Department: 
             <span class="font-medium">${data.department}</span><br />

@@ -1,5 +1,3 @@
-console.log("Rate My Professor Extension background script is running");
-
 chrome.runtime.onMessage.addListener(
   (
     message: {
@@ -11,12 +9,8 @@ chrome.runtime.onMessage.addListener(
     _sender,
     sendResponse
   ) => {
-    console.log("Message received in background script:", message);
-
     if (message.type === "FETCH_PROFESSOR_INFO") {
       const maxResults = message.maxResults || 5;
-      console.log("Fetching professor info for:", message);
-
       const API_LINK = "https://www.ratemyprofessors.com/graphql";
       const AUTH_TOKEN = "dGVzdDp0ZXN0";
 
@@ -84,7 +78,6 @@ chrome.runtime.onMessage.addListener(
           });
 
           const data = await response.json();
-          console.log("Fetched data:", data);
 
           if (data?.data?.search?.teachers?.edges?.length) {
             const teacherEdges = data.data.search.teachers.edges;
@@ -124,8 +117,27 @@ chrome.runtime.onMessage.addListener(
         }
       })();
 
-      console.log("Returning true to keep the port alive.");
       return true;
     }
   }
 );
+
+chrome.storage.onChanged.addListener((changes) => {
+  if (changes.extensionEnabled) {
+    const isEnabled = changes.extensionEnabled.newValue;
+
+    const iconPath = isEnabled
+      ? {
+          16: "icon-16.png",
+          48: "icon-48.png",
+          128: "icon-128.png",
+        }
+      : {
+          16: "icon-16-disabled.png",
+          48: "icon-48-disabled.png",
+          128: "icon-128-disabled.png",
+        };
+
+    chrome.action.setIcon({ path: iconPath });
+  }
+});
