@@ -53,9 +53,9 @@ function App() {
       </button>
 
       {showMessage && (
-        <p className="text-[11px] text-gray-600">
+        <div className="text-[11px] text-gray-600">
           Reload the page to apply changes.
-        </p>
+        </div>
       )}
 
       <button
