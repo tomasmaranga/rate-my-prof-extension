@@ -1,50 +1,43 @@
-# React + TypeScript + Vite
+# Rate My Professor Chrome Extension
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This Chrome extension helps Tufts students easily access their professors' Rate My Professors statistics directly on SIS. It provides quick access to professor ratings, tags, and other helpful information directly from the SIS website.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **Hover Popup:** View ratings, average difficulty, and top tags by hovering over a professor's name
+- **Quick Links:** Access the professor's full Rate My Professors profile with a single click
+- **Search Ambiguity:** Handles multiple matches for similar names by offering alternative selections
+- **Class Filtering:** Update the stats displayed for each individual class
+- **Toggle Extension:** Enable or disable the extension easily from the popup menu
 
-## Expanding the ESLint configuration
+## Installation
 
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
+TBA!
 
-- Configure the top-level `parserOptions` property like this:
+## Usage
 
-```js
-export default tseslint.config({
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
-```
+1. Navigate to Tufts' SIS search results page.
+2. Hover over a professor's name to view their RMP stats in a popup.
+3. Use the extension popup menu to:
+   - Enable/disable the extension.
+   - Send feedback or report issues.
 
-- Replace `tseslint.configs.recommended` to `tseslint.configs.recommendedTypeChecked` or `tseslint.configs.strictTypeChecked`
-- Optionally add `...tseslint.configs.stylisticTypeChecked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and update the config:
+## File Structure
 
-```js
-// eslint.config.js
-import react from 'eslint-plugin-react'
+- `src/`
+  - **`background.ts`**: Handles background tasks and RMP API requests.
+  - **`content.ts`**: Injected into the SIS page to add hover functionality.
+  - **`popupRenderer.ts`**: Generates the HTML for the hover popup.
+  - **`App.tsx`**: Handles the extension's popup menu UI.
+- `dist/`: Contains the final build files for the extension.
+- `manifest.json`: Chrome extension configuration file.
 
-export default tseslint.config({
-  // Set the react version
-  settings: { react: { version: '18.3' } },
-  plugins: {
-    // Add the react plugin
-    react,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended rules
-    ...react.configs.recommended.rules,
-    ...react.configs['jsx-runtime'].rules,
-  },
-})
-```
+## Feedback
+
+Any feedback is greatly appreciated! Use the "Send Feedback" button in the extension's popup menu or visit the [feedback form](https://forms.gle/Z17XMjh2qoVzNW9w8).
+
+If you would like to adapt this extension to your own university, feel free to reach out!
+
+---
+
+**Thank you!**
