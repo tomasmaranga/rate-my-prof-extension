@@ -1,14 +1,14 @@
 {
   "manifest_version": 3,
-  "name": "Tufts SIS Rate My Professors Extension",
+  "name": "ProfPreview: Rate My Professors for Tufts SIS",
   "version": "1.0",
   "icons": {
     "16": "icon-16.png",
     "48": "icon-48.png",
     "128": "icon-128.png"
   },
-  "description": "Easily access your professors' RMP stats on SIS",
-  "permissions": ["activeTab", "storage", "scripting"],
+  "description": "Easily access your professors' Rate My Professors stats on SIS",
+  "permissions": ["storage"],
   "host_permissions": ["*://www.ratemyprofessors.com/*"],
   "background": {
     "service_worker": "background.js"
