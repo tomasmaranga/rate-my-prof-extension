@@ -12,7 +12,12 @@ This Chrome extension helps Tufts students easily access their professors' Rate 
 
 ## Installation
 
-TBA!
+To install the extension:
+
+1. Visit the Chrome Web Store listing: [ProfPreview: Rate My Professors for Tufts SIS](https://chromewebstore.google.com/detail/profpreview-rate-my-profe/eplniknciabfmepplkpocomfmgklaebb).
+2. Click the **"Add to Chrome"** button.
+3. Confirm by clicking **"Add Extension"** in the pop-up prompt.
+4. Once installed, the extension icon will appear in your browser toolbar.
 
 ## Usage
 
