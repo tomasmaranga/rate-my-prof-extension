@@ -31,7 +31,11 @@ export interface PopupData extends Teacher {
   otherMatches?: Teacher[];
 }
 
-export function renderPopup(data: PopupData, selectedCourse: string = "all") {
+export function renderPopup(
+  data: PopupData,
+  selectedCourse: string = "all",
+  selectedUniversity: string = "tufts"
+) {
   const topTags = data.teacherRatingTags
     .sort((a, b) => b.tagCount - a.tagCount)
     .slice(0, 5);
@@ -89,33 +93,59 @@ export function renderPopup(data: PopupData, selectedCourse: string = "all") {
   );
 
   const otherMatchesHtml = `
-  <h2 class="text-md font-bold mt-6">Were you looking for:</h2>
-  <div class="mt-2 space-y-1">
-    ${
-      data.otherMatches
-        ?.map((oth) => {
-          const escapedData = JSON.stringify(oth)
-            .replace(/\\/g, "\\\\")
-            .replace(/"/g, "&quot;");
-          return `
-          <div class="flex justify-between items-center border-b py-1">
-            <span>
-              ${oth.firstName} ${oth.lastName} (${oth.department || "Unknown"})
-            </span>
-            <button
-              class="choose-other text-blue-600 underline"
-              data-oth="${escapedData}"
-            >
-              Select
-            </button>
-          </div>
-        `;
-        })
-        .join("") ||
-      `<span class="text-gray-500 text-sm">No other matches available</span>`
-    }
-  </div>
-`;
+    <div class="flex justify-between items-center mt-6">
+      <h2 class="text-md font-bold">Were you looking for:</h2>
+      <div class="flex space-x-2">
+        <span 
+          class="toggle-university-option cursor-pointer px-2 py-1 border rounded ${
+            selectedUniversity === "tufts"
+              ? "bg-blue-500 text-white"
+              : "bg-gray-200 text-gray-800"
+          }"
+          data-value="tufts"
+        >
+          Tufts
+        </span>
+        <span 
+          class="toggle-university-option cursor-pointer px-2 py-1 border rounded ${
+            selectedUniversity === "all"
+              ? "bg-blue-500 text-white"
+              : "bg-gray-200 text-gray-800"
+          }"
+          data-value="all"
+        >
+          All Universities
+        </span>
+      </div>
+    </div>
+    <div class="mt-2 space-y-1">
+      ${
+        data.otherMatches
+          ?.map((oth) => {
+            const escapedData = JSON.stringify(oth)
+              .replace(/\\/g, "\\\\")
+              .replace(/"/g, "&quot;");
+            return `
+            <div class="flex justify-between items-center border-b py-1">
+              <span>
+                ${oth.firstName} ${oth.lastName} (${
+              oth.department || "Unknown"
+            })
+              </span>
+              <button
+                class="choose-other text-blue-600 underline"
+                data-oth="${escapedData}"
+              >
+                Select
+              </button>
+            </div>
+          `;
+          })
+          .join("") ||
+        `<span class="text-gray-500 text-sm">No other matches available</span>`
+      }
+    </div>
+  `;
 
   return `
     <div class="w-[667px] h-auto bg-white p-4 text-gray-900">
@@ -133,7 +163,7 @@ export function renderPopup(data: PopupData, selectedCourse: string = "all") {
               ${data.numRatings} Ratings
             </span>
           </p>
-          <div class ="flex flex-row gap-2 items-center">
+          <div class="flex flex-row gap-2 items-center">
             <h1 class="text-3xl text-black font-bold">
               ${data.firstName} ${data.lastName}
             </h1>

@@ -60,7 +60,7 @@ chrome.runtime.onMessage.addListener(
       const variables = {
         query: {
           text: message.name,
-          schoolID: message.schoolId,
+          schoolID: message.schoolId || null,
         },
       };
 

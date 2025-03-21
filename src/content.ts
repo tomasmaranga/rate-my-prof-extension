@@ -19,15 +19,15 @@ async function showPopup(
   target: HTMLElement,
   data: PopupData,
   hoveredName: string,
-  selectedCourse: string = "all"
+  selectedCourse: string = "all",
+  selectedUniversity: string = "tufts"
 ) {
   const popup =
     (document.getElementById("rmp-popup") as HTMLDivElement) || createPopup();
 
-  popup.innerHTML = renderPopup(data, selectedCourse);
+  popup.innerHTML = renderPopup(data, selectedCourse, selectedUniversity);
 
   const rect = target.getBoundingClientRect();
-
   const scaleFactor = 0.7;
 
   popup.style.transformOrigin = "top left";
@@ -39,6 +39,7 @@ async function showPopup(
   attachPopupHoverLogic(target, popup);
   attachDropdownChange(popup, data, hoveredName, target);
   attachOtherMatchesClick(popup, hoveredName, target, data);
+  attachToggleUniversityClick(popup, hoveredName, target, data);
 }
 
 function hidePopup() {
@@ -331,3 +332,41 @@ runExtensionScript();
 window.addEventListener("hashchange", () => {
   runExtensionScript();
 });
+
+function attachToggleUniversityClick(
+  popup: HTMLElement,
+  hoveredName: string,
+  professorDiv: HTMLElement,
+  currentData: PopupData
+) {
+  const toggleButtons = popup.querySelectorAll(".toggle-university-option");
+  toggleButtons.forEach((btn) => {
+    btn.addEventListener("click", async (evt) => {
+      evt.stopPropagation();
+      const button = evt.currentTarget as HTMLElement;
+      const selection = button.getAttribute("data-value") || "tufts";
+
+      let schoolId = "";
+      if (selection === "tufts") {
+        schoolId = "U2Nob29sLTEwNDA=";
+      } else if (selection === "all") {
+        schoolId = "";
+      }
+
+      const newTeachers = await parseAndFetchTeachers(hoveredName, schoolId);
+      if (!newTeachers.length) {
+        hidePopup();
+        return;
+      }
+
+      const mainTeacher = currentData;
+
+      const others = newTeachers.filter((t) => t.id !== mainTeacher.id);
+
+      const newMainData = buildPopupDataFromTeacher(mainTeacher);
+      newMainData.otherMatches = others.map(buildPopupDataFromTeacher);
+
+      showPopup(professorDiv, newMainData, hoveredName, "all", selection);
+    });
+  });
+}
