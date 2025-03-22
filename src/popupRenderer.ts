@@ -9,6 +9,12 @@ export interface Teacher {
   avgDifficulty: number;
   wouldTakeAgainPercentRounded: number;
   numRatings: number;
+  school: {
+    id: string;
+    name: string;
+    city: string;
+    state: string;
+  };
   ratingsDistribution: {
     r1: number;
     r2: number;
@@ -99,8 +105,8 @@ export function renderPopup(
         <span 
           class="toggle-university-option cursor-pointer px-2 py-1 border rounded ${
             selectedUniversity === "tufts"
-              ? "bg-blue-500 text-white"
-              : "bg-gray-200 text-gray-800"
+              ? "bg-blue-600 text-white"
+              : "bg-gray-300 text-gray-800"
           }"
           data-value="tufts"
         >
@@ -109,8 +115,8 @@ export function renderPopup(
         <span 
           class="toggle-university-option cursor-pointer px-2 py-1 border rounded ${
             selectedUniversity === "all"
-              ? "bg-blue-500 text-white"
-              : "bg-gray-200 text-gray-800"
+              ? "bg-blue-600 text-white"
+              : "bg-gray-300 text-gray-800"
           }"
           data-value="all"
         >
@@ -192,7 +198,7 @@ export function renderPopup(
           <p class="text-gray-700 mt-1">
             Department: 
             <span class="font-medium">${data.department}</span><br />
-            at Tufts University
+            at ${data.school.name}
           </p>
           <div class="flex items-center space-x-6 mt-6">
             <div class="text-center">

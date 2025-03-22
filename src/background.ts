@@ -28,6 +28,12 @@ chrome.runtime.onMessage.addListener(
                   avgDifficulty
                   wouldTakeAgainPercentRounded
                   numRatings
+                  school {
+                    id
+                    name
+                    city
+                    state
+                  }
                   ratingsDistribution {
                     r1
                     r2
@@ -93,6 +99,7 @@ chrome.runtime.onMessage.addListener(
                 avgDifficulty: t.avgDifficulty,
                 wouldTakeAgainPercentRounded: t.wouldTakeAgainPercentRounded,
                 numRatings: t.numRatings,
+                school: t.school,
                 ratingsDistribution: t.ratingsDistribution,
                 teacherRatingTags: t.teacherRatingTags,
                 ratings:
