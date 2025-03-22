@@ -105,8 +105,8 @@ export function renderPopup(
         <span 
           class="toggle-university-option cursor-pointer px-2 py-1 border rounded ${
             selectedUniversity === "tufts"
-              ? "bg-blue-600 text-white"
-              : "bg-gray-300 text-gray-800"
+              ? "bg-blue-500 text-white"
+              : "bg-gray-200 text-gray-800"
           }"
           data-value="tufts"
         >
@@ -115,8 +115,8 @@ export function renderPopup(
         <span 
           class="toggle-university-option cursor-pointer px-2 py-1 border rounded ${
             selectedUniversity === "all"
-              ? "bg-blue-600 text-white"
-              : "bg-gray-300 text-gray-800"
+              ? "bg-blue-500 text-white"
+              : "bg-gray-200 text-gray-800"
           }"
           data-value="all"
         >
