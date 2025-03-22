@@ -46,16 +46,6 @@ chrome.runtime.onMessage.addListener(
                     tagName
                     tagCount
                   }
-                  ratings {
-                    edges {
-                      node {
-                        qualityRating
-                        difficultyRatingRounded
-                        iWouldTakeAgain
-                        class
-                      }
-                    }
-                  }
                 }
               }
             }
@@ -63,7 +53,7 @@ chrome.runtime.onMessage.addListener(
         }
       `;
 
-      const variables = {
+      const searchVariables = {
         query: {
           text: message.name,
           schoolID: message.schoolId || null,
@@ -77,47 +67,83 @@ chrome.runtime.onMessage.addListener(
 
       (async () => {
         try {
-          const response = await fetch(API_LINK, {
+          const searchRes = await fetch(API_LINK, {
             method: "POST",
             headers,
-            body: JSON.stringify({ query, variables }),
+            body: JSON.stringify({
+              query: query,
+              variables: searchVariables,
+            }),
           });
+          const searchData = await searchRes.json();
 
-          const data = await response.json();
-
-          if (data?.data?.search?.teachers?.edges?.length) {
-            const teacherEdges = data.data.search.teachers.edges;
-
-            const teachers = teacherEdges.map((edge: any) => {
-              const t = edge.node;
-              return {
-                id: t.id,
-                firstName: t.firstName,
-                lastName: t.lastName,
-                department: t.department,
-                avgRatingRounded: t.avgRatingRounded,
-                avgDifficulty: t.avgDifficulty,
-                wouldTakeAgainPercentRounded: t.wouldTakeAgainPercentRounded,
-                numRatings: t.numRatings,
-                school: t.school,
-                ratingsDistribution: t.ratingsDistribution,
-                teacherRatingTags: t.teacherRatingTags,
-                ratings:
-                  t.ratings?.edges?.map((rEdge: any) => ({
-                    qualityRating: rEdge.node.qualityRating || 0,
-                    difficultyRatingRounded:
-                      rEdge.node.difficultyRatingRounded || 0,
-                    iWouldTakeAgain: rEdge.node.iWouldTakeAgain,
-                    class: rEdge.node.class || "Unknown",
-                  })) || [],
-              };
-            });
-
-            sendResponse({ teachers });
-          } else {
+          const edges = searchData?.data?.search?.teachers?.edges;
+          if (!edges?.length) {
             console.error("No teacher data found for that query.");
             sendResponse(null);
+            return;
           }
+
+          const teachersPromises = edges.map(async (edge: any) => {
+            const t = edge.node;
+            const teacherBase = {
+              id: t.id,
+              firstName: t.firstName,
+              lastName: t.lastName,
+              department: t.department,
+              avgRatingRounded: t.avgRatingRounded,
+              avgDifficulty: t.avgDifficulty,
+              wouldTakeAgainPercentRounded: t.wouldTakeAgainPercentRounded,
+              numRatings: t.numRatings,
+              school: t.school,
+              ratingsDistribution: t.ratingsDistribution,
+              teacherRatingTags: t.teacherRatingTags,
+              ratings: [] as any[],
+            };
+
+            const ratingsQuery = `
+              query GetTeacherRatings($id: ID!) {
+                node(id: $id) {
+                  ... on Teacher {
+                    ratings(first: 300) {
+                      edges {
+                        node {
+                          qualityRating
+                          difficultyRatingRounded
+                          iWouldTakeAgain
+                          class
+                          date
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            `;
+            const ratingsRes = await fetch(API_LINK, {
+              method: "POST",
+              headers,
+              body: JSON.stringify({
+                query: ratingsQuery,
+                variables: { id: t.id },
+              }),
+            });
+            const ratingsData = await ratingsRes.json();
+            const ratingEdges = ratingsData?.data?.node?.ratings?.edges || [];
+            teacherBase.ratings = ratingEdges.map((rEdge: any) => ({
+              qualityRating: rEdge.node.qualityRating || 0,
+              difficultyRatingRounded: rEdge.node.difficultyRatingRounded || 0,
+              iWouldTakeAgain: rEdge.node.iWouldTakeAgain,
+              class: rEdge.node.class || "Unknown",
+              date: rEdge.node.date || null,
+            }));
+
+            return teacherBase;
+          });
+
+          const fullTeachers = await Promise.all(teachersPromises);
+
+          sendResponse({ teachers: fullTeachers });
         } catch (error) {
           console.error("Error during fetch:", error);
           sendResponse(null);
@@ -128,23 +154,3 @@ chrome.runtime.onMessage.addListener(
     }
   }
 );
-
-chrome.storage.onChanged.addListener((changes) => {
-  if (changes.extensionEnabled) {
-    const isEnabled = changes.extensionEnabled.newValue;
-
-    const iconPath = isEnabled
-      ? {
-          16: "icon-16.png",
-          48: "icon-48.png",
-          128: "icon-128.png",
-        }
-      : {
-          16: "icon-16-disabled.png",
-          48: "icon-48-disabled.png",
-          128: "icon-128-disabled.png",
-        };
-
-    chrome.action.setIcon({ path: iconPath });
-  }
-});
