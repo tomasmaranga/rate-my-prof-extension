@@ -19,15 +19,15 @@ async function showPopup(
   target: HTMLElement,
   data: PopupData,
   hoveredName: string,
-  selectedCourse: string = "all"
+  selectedCourse: string = "all",
+  selectedUniversity: string = "tufts"
 ) {
   const popup =
     (document.getElementById("rmp-popup") as HTMLDivElement) || createPopup();
 
-  popup.innerHTML = renderPopup(data, selectedCourse);
+  popup.innerHTML = renderPopup(data, selectedCourse, selectedUniversity);
 
   const rect = target.getBoundingClientRect();
-
   const scaleFactor = 0.7;
 
   popup.style.transformOrigin = "top left";
@@ -38,7 +38,8 @@ async function showPopup(
 
   attachPopupHoverLogic(target, popup);
   attachDropdownChange(popup, data, hoveredName, target);
-  attachOtherMatchesClick(popup, hoveredName, target, data);
+  attachOtherMatchesClick(popup, hoveredName, target, data, selectedUniversity);
+  attachToggleUniversityClick(popup, hoveredName, target, data);
 }
 
 function hidePopup() {
@@ -86,6 +87,13 @@ async function parseAndFetchTeachers(
       maxResultsPer
     );
     if (partial && partial.length > 0) {
+      for (const p of partial) {
+        if (schoolId === "U2Nob29sLTEwNDA=") {
+          (p as any).origin = "tufts";
+        } else {
+          (p as any).origin = "all";
+        }
+      }
       allTeachers = allTeachers.concat(partial);
     }
   }
@@ -157,30 +165,44 @@ function attachOtherMatchesClick(
   popup: HTMLElement,
   hoveredName: string,
   professorDiv: HTMLElement,
-  currentData: PopupData
+  currentData: PopupData,
+  selectedUniversity: string
 ) {
   popup.querySelectorAll(".choose-other").forEach((btn) => {
     btn.addEventListener("click", async (evt) => {
       evt.stopPropagation();
       const target = evt.currentTarget as HTMLElement;
       const profJson = target.getAttribute("data-oth");
-      if (!profJson) {
-        console.error("No data-oth attribute found for button.");
-        return;
-      }
+      if (!profJson) return;
       try {
         const chosenProf: Teacher = JSON.parse(profJson);
 
-        await chrome.storage.local.set({
-          [`pref_${hoveredName}`]: chosenProf,
-        });
+        await chrome.storage.local.set({ [`pref_${hoveredName}`]: chosenProf });
 
         const newMain = buildPopupDataFromTeacher(chosenProf);
 
-        const leftover = (currentData.otherMatches || []).concat([currentData]);
-        newMain.otherMatches = leftover.filter((o) => o.id !== chosenProf.id);
+        const tuftsArr = (currentData as any).tuftsArr || [];
+        const allArr = (currentData as any).allArr || [];
 
-        showPopup(professorDiv, newMain, hoveredName, "all");
+        let shownArr = tuftsArr;
+        if (selectedUniversity === "all") {
+          shownArr = allArr;
+        }
+
+        newMain.otherMatches = shownArr
+          .filter((t: { id: string }) => t.id !== newMain.id)
+          .map(buildPopupDataFromTeacher);
+
+        (newMain as any).tuftsArr = tuftsArr;
+        (newMain as any).allArr = allArr;
+
+        showPopup(
+          professorDiv,
+          newMain,
+          hoveredName,
+          "all",
+          selectedUniversity
+        );
       } catch (error) {
         console.error("Failed to parse data-oth JSON:", error, profJson);
       }
@@ -261,7 +283,7 @@ async function callBackgroundRMP(
   });
 }
 
-function processProfessorElement(professorDiv: HTMLElement) {
+async function processProfessorElement(professorDiv: HTMLElement) {
   if (observedElements.has(professorDiv)) return;
   observedElements.add(professorDiv);
 
@@ -269,36 +291,45 @@ function processProfessorElement(professorDiv: HTMLElement) {
 
   professorDiv.addEventListener("mouseenter", async () => {
     const professorName = professorDiv.textContent?.trim() || "";
+    if (professorName === "STAFF" || !professorName) return;
 
-    if (professorName === "STAFF") {
-      return;
-    }
-
-    if (!professorName) return;
-
-    const teachers = await parseAndFetchTeachers(
+    const tuftsArr = await parseAndFetchTeachers(
       professorName,
       "U2Nob29sLTEwNDA="
     );
-    if (!teachers.length) return;
+    const allArr = await parseAndFetchTeachers(professorName, "");
+
+    if (!tuftsArr.length && !allArr.length) return;
+
+    const combined = mergeTeacherArrays(tuftsArr, allArr);
 
     const prefKey = `pref_${professorName}`;
     const stored = await chrome.storage.local.get(prefKey);
 
-    let mainTeacher: Teacher;
+    let mainTeacher = combined[0];
     if (stored[prefKey]) {
-      const found = teachers.find((t) => t.id === stored[prefKey].id);
-      mainTeacher = found || teachers[0];
-    } else {
-      mainTeacher = teachers[0];
+      const found = combined.find((t) => t.id === stored[prefKey].id);
+      if (found) mainTeacher = found;
     }
-    const others = teachers.filter((t) => t.id !== mainTeacher.id);
 
     const mainData = buildPopupDataFromTeacher(mainTeacher);
-    mainData.otherMatches = others.map(buildPopupDataFromTeacher);
 
-    showPopup(professorDiv, mainData, professorName, "all");
+    (mainData as any).tuftsArr = tuftsArr;
+    (mainData as any).allArr = allArr;
+
+    mainData.otherMatches = tuftsArr
+      .filter((t) => t.id !== mainTeacher.id)
+      .map(buildPopupDataFromTeacher);
+
+    showPopup(professorDiv, mainData, professorName, "all", "tufts");
   });
+}
+
+function mergeTeacherArrays(a: Teacher[], b: Teacher[]): Teacher[] {
+  const map = new Map<string, Teacher>();
+  for (const t of a) map.set(t.id, t);
+  for (const t of b) map.set(t.id, t);
+  return Array.from(map.values());
 }
 
 function monitorForNewProfessorElements() {
@@ -331,3 +362,39 @@ runExtensionScript();
 window.addEventListener("hashchange", () => {
   runExtensionScript();
 });
+
+function attachToggleUniversityClick(
+  popup: HTMLElement,
+  hoveredName: string,
+  professorDiv: HTMLElement,
+  currentData: PopupData
+) {
+  const toggleButtons = popup.querySelectorAll(".toggle-university-option");
+  toggleButtons.forEach((btn) => {
+    btn.addEventListener("click", (evt) => {
+      evt.stopPropagation();
+      const button = evt.currentTarget as HTMLElement;
+      const selection = button.getAttribute("data-value") || "tufts";
+
+      const mainTeacher = buildPopupDataFromTeacher(currentData);
+
+      const tuftsArr = (currentData as any).tuftsArr || [];
+      const allArr = (currentData as any).allArr || [];
+
+      let chosenArray = tuftsArr;
+      if (selection === "all") {
+        chosenArray = allArr;
+      }
+
+      const filtered = chosenArray.filter(
+        (t: Teacher) => t.id !== mainTeacher.id
+      );
+      mainTeacher.otherMatches = filtered.map(buildPopupDataFromTeacher);
+
+      (mainTeacher as any).tuftsArr = tuftsArr;
+      (mainTeacher as any).allArr = allArr;
+
+      showPopup(professorDiv, mainTeacher, hoveredName, "all", selection);
+    });
+  });
+}
